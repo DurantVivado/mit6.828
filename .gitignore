@@ -1,5 +1,6 @@
 day*/obj
 qemu
+.vscode
 /jos.in
 /jos.log
 /jos.out
