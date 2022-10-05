@@ -2,6 +2,12 @@
     "files.associations": {
         "monitor.h": "c",
         "console.h": "c",
-        "memlayout.h": "c"
+        "memlayout.h": "c",
+        "types.h": "c",
+        "*.tcc": "c",
+        "cstdlib": "c",
+        "cmath": "c",
+        "random": "c",
+        "error.h": "c"
     }
 }
