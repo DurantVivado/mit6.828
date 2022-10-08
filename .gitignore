@@ -19,3 +19,5 @@ lab*/myapi.key
 lab*/.suf
 xv6-public/*.o
 xv6-public/*.d
+xv6-public/*.asm
+xv6-public/*.sym
