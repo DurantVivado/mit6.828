@@ -17,3 +17,5 @@ lab*/lab*-handin.tar.gz
 lab*/sol?/
 lab*/myapi.key
 lab*/.suf
+xv6-public/*.o
+xv6-public/*.d
