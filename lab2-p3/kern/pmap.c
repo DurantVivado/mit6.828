@@ -134,7 +134,7 @@ boot_alloc(uint32_t n)
 void
 mem_init(void)
 {
-	uint32_t cr0;
+	uint32_t cr0, i;
 	size_t n;
 
 	// Find out how much memory the machine has (npages & npages_basemem).
@@ -189,7 +189,11 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-
+	// cprintf("UPAGES:%x, npages:%d\n", UPAGES, npages);
+	// cprintf("sizeof():%d\n", sizeof(struct PageInfo));
+	// cprintf("sizeof(*):%d\n", sizeof(struct PageInfo*));
+	boot_map_region(kern_pgdir, (uintptr_t)UPAGES, 
+		npages*sizeof(struct PageInfo), PADDR(pages), PTE_U | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -201,7 +205,8 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-
+	boot_map_region(kern_pgdir, (uintptr_t)(KERNBASE - KSTKSIZE),
+		KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -210,7 +215,8 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-
+	boot_map_region(kern_pgdir, (uintptr_t)(KERNBASE), 
+		ROUNDUP(0xffffffff - KERNBASE, PGSIZE), 0, PTE_P | PTE_W);
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -432,15 +438,18 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 {
 	// Fill this function in
 	pte_t* pg_tbl;
-	uintptr_t end_ptr = va + size;
-	pte_t page_tbl_idx = PTX(va);
+	size_t i;
+	// cprintf("va:%x, end_ptr:%x, size: %x\n", va, va + size, size);
 	// walk through the va's at a stride of PGSIZE
-	for (; va < end_ptr; va += PGSIZE, pa += PGSIZE) {
+	for (i = 0; i < size; i += PGSIZE) {
 		pg_tbl = pgdir_walk(pgdir, (void*)va, 1);
 		if (!pg_tbl) {
 			panic("boot_map_region: pgdir_walk return NULL pointer");
 		}
 		*pg_tbl = pa | perm | PTE_P;
+		// cprintf("va:%x mapped to pa:%x\n", va, pa);
+		va += PGSIZE;
+		pa += PGSIZE;
 	}
 }
 
@@ -731,19 +740,28 @@ check_kern_pgdir(void)
 
 	// check pages array
 	n = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE);
-	for (i = 0; i < n; i += PGSIZE)
+	for (i = 0; i < n; i += PGSIZE) {
+		// cprintf("i :%d, check:%x, actual:%x\n", i,
+			//  check_va2pa(pgdir, UPAGES + i), PADDR(pages) + i);
 		assert(check_va2pa(pgdir, UPAGES + i) == PADDR(pages) + i);
-
+	}
 
 	// check phys mem
-	for (i = 0; i < npages * PGSIZE; i += PGSIZE)
+	for (i = 0; i < npages * PGSIZE; i += PGSIZE) {
+		// cprintf("i :%d, check:%x, actual:%x\n", i,
+		// 	 check_va2pa(pgdir, KERNBASE + i), i);
 		assert(check_va2pa(pgdir, KERNBASE + i) == i);
+	}
 
 	// check kernel stack
-	for (i = 0; i < KSTKSIZE; i += PGSIZE)
+	for (i = 0; i < KSTKSIZE; i += PGSIZE) {
+		// cprintf("i :%d, check:%x, actual:%x\n", i,
+			//  check_va2pa(pgdir, KSTACKTOP - KSTKSIZE + i), PADDR(bootstack) + i);
 		assert(check_va2pa(pgdir, KSTACKTOP - KSTKSIZE + i) == PADDR(bootstack) + i);
-	assert(check_va2pa(pgdir, KSTACKTOP - PTSIZE) == ~0);
-
+		// cprintf("i :%d, check:%x, actual:%x\n", i,
+			//  check_va2pa(pgdir, KSTACKTOP - PTSIZE), ~0);
+		assert(check_va2pa(pgdir, KSTACKTOP - PTSIZE) == ~0);
+	}
 	// check PDE permissions
 	for (i = 0; i < NPDENTRIES; i++) {
 		switch (i) {
@@ -775,11 +793,15 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 	pte_t *p;
 
 	pgdir = &pgdir[PDX(va)];
-	if (!(*pgdir & PTE_P))
+	if (!(*pgdir & PTE_P)) {
+		// cprintf("page table not exists\n");
 		return ~0;
+	}
 	p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
-	if (!(p[PTX(va)] & PTE_P))
+	if (!(p[PTX(va)] & PTE_P)) {
+		// cprintf("page not exists\n");
 		return ~0;
+	}
 	return PTE_ADDR(p[PTX(va)]);
 }
 
@@ -845,7 +867,7 @@ check_page(void)
 	assert(pp2->pp_ref == 1);
 
 	// pp2 should NOT be on the free list
-	// could happen if ref counts are handled sloppily in page_insert
+	// could happen in ref counts are handled sloppily in page_insert
 	assert(!page_alloc(0));
 
 	// check that pgdir_walk returns a pointer to the pte
