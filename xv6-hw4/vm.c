@@ -232,7 +232,14 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
     mem = kalloc();
-    if(mem == 0){
+    if(mem == 0){char *mem;
+  uint a;
+
+  if(newsz >= KERNBASE)
+    return 0;
+  if(newsz < oldsz)
+    return oldsz;
+
       cprintf("allocuvm out of memory\n");
       deallocuvm(pgdir, newsz, oldsz);
       return 0;
