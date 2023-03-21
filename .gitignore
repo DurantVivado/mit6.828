@@ -18,8 +18,10 @@ lab*/sol?/
 lab*/myapi.key
 lab*/.suf
 xv6*/*.o
+xv6*/*.out
 xv6*/*.d
 xv6*/*.asm
 xv6*/*.sym
 xv6*/_*
+xv6*/*.img
 

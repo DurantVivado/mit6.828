@@ -59,6 +59,18 @@ trap(struct trapframe *tf)
       release(&tickslock);
     }
     lapiceoi();
+    // CPU alarm ticks for processes
+    if (myproc() != 0 && (tf->cs & 3) == 3) {
+      //user-level
+      // cprintf("count:%d,alarm:%d\n", myproc()->countticks, myproc()->alarmticks);
+      myproc()->countticks++;
+      if (myproc()->countticks == myproc()->alarmticks) {
+        myproc()->countticks = 0;
+        tf->esp -= 4;
+        *((uint*)tf->esp) = tf->eip;
+        tf->eip =  (uint)myproc()->alarmhandler;
+      }
+    }
     break;
   case T_IRQ0 + IRQ_IDE:
     ideintr();
@@ -97,7 +109,7 @@ trap(struct trapframe *tf)
         return;
     }
     memset(mem, 0, PGSIZE);
-    cprintf("kernel faulting in page at %x\n", va);
+    // cprintf("kernel faulting in page at %x\n", va);
     // mem = kalloc();
     // if (mem == 0) {
     //   cprintf("kalloc out of memory");
