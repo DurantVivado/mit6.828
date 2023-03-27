@@ -513,7 +513,6 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	// Fill this function in
 	// cprintf("entering page_lookup\n");
 	pte_t *pgtbl = pgdir_walk(pgdir, va, 0);
 	if (pgtbl == NULL) {
