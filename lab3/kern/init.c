@@ -26,7 +26,7 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
+	// cprintf("6828 decimal is %o octal!\n", 6828);
 
 	// Lab 2 memory management initialization functions
 	mem_init();
@@ -40,11 +40,16 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
+	// cprintf("start creating env...\n");
 	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	// cprintf("env successfully created...\n");
 #endif // TEST*
 
 	// We only have one user environment for now, so just run it.
+
+	// cprintf("start running env...\n");
 	env_run(&envs[0]);
+	// cprintf("env successfully run\n");
 }
 
 
