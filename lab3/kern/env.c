@@ -191,7 +191,8 @@ env_setup_vm(struct Env *e)
 	// assign the virtual address of p to env_pgdir
 	e->env_pgdir = (pde_t*)page2kva(p);
 	
-	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
+    for (size_t i = PDX(UTOP); i < NPDENTRIES; ++i)
+        e->env_pgdir[i] = kern_pgdir[i];
 	for (i = 0; i < PDX(UTOP); i++) {
 		e->env_pgdir[i] = 0;
 	}
@@ -463,7 +464,7 @@ env_destroy(struct Env *e)
 {
 	env_free(e);
 
-	// cprintf("Destroyed the only environment - nothing more to do!\n");
+	cprintf("Destroyed the only environment - nothing more to do!\n");
 	while (1)
 		monitor(NULL);
 }
@@ -524,9 +525,7 @@ env_run(struct Env *e)
 	// cprintf("switch to user mode...\n");
 	lcr3(PADDR(e->env_pgdir));
 	// cprintf("protect the environment state...\n");
-	env_pop_tf(&e->env_tf);
-	// cprintf("change curenv to e\n");
 	curenv = e;
-	
+	env_pop_tf(&e->env_tf);
 }
 

@@ -58,35 +58,36 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
+extern void T_DIVIDE_handler();
+extern void T_DEBUG_handler();
+extern void T_NMI_handler();
+extern void T_BRKPT_handler();
+extern void T_OFLOW_handler();
+extern void T_BOUND_handler();
+extern void T_ILLOP_handler();
+extern void T_DEVICE_handler();
+extern void T_DBLFLT_handler();
+extern void T_TSS_handler();
+extern void T_SEGNP_handler();
+extern void T_STACK_handler();
+extern void T_GPFLT_handler();
+extern void T_PGFLT_handler();
+extern void T_FPERR_handler();
+extern void T_ALIGN_handler();
+extern void T_MCHK_handler();
+extern void T_SIMDERR_handler();
+extern void T_SYSCALL_handler();
 
 void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
-	void T_DIVIDE_handler();
-    void T_DEBUG_handler();
-    void T_NMI_handler();
-    void T_BRKPT_handler();
-    void T_OFLOW_handler();
-    void T_BOUND_handler();
-    void T_ILLOP_handler();
-    void T_DEVICE_handler();
-    void T_DBLFLT_handler();
-    void T_TSS_handler();
-    void T_SEGNP_handler();
-    void T_STACK_handler();
-    void T_GPFLT_handler();
-    void T_PGFLT_handler();
-    void T_FPERR_handler();
-    void T_ALIGN_handler();
-    void T_MCHK_handler();
-    void T_SIMDERR_handler();
-    void T_SYSCALL_handler();
+
     SETGATE(idt[T_DIVIDE], 0, GD_KT, T_DIVIDE_handler, 0);
     SETGATE(idt[T_DEBUG], 0, GD_KT, T_DEBUG_handler, 0);
     SETGATE(idt[T_NMI], 0, GD_KT, T_NMI_handler, 0);
-    SETGATE(idt[T_BRKPT], 1, GD_KT, T_BRKPT_handler, 0);
-    SETGATE(idt[T_OFLOW], 1, GD_KT, T_OFLOW_handler, 0);
+    SETGATE(idt[T_BRKPT], 0, GD_KT, T_BRKPT_handler, 3);
+    SETGATE(idt[T_OFLOW], 0, GD_KT, T_OFLOW_handler, 0);
     SETGATE(idt[T_BOUND], 0, GD_KT, T_BOUND_handler, 0);
     SETGATE(idt[T_ILLOP], 0, GD_KT, T_ILLOP_handler, 0);
     SETGATE(idt[T_DEVICE], 0, GD_KT, T_DEVICE_handler, 0);
@@ -100,7 +101,7 @@ trap_init(void)
     SETGATE(idt[T_ALIGN], 0, GD_KT, T_ALIGN_handler, 0);
     SETGATE(idt[T_MCHK], 0, GD_KT, T_MCHK_handler, 0);
     SETGATE(idt[T_SIMDERR], 0, GD_KT, T_SIMDERR_handler, 0);
-    SETGATE(idt[T_SYSCALL], 1, GD_KT, T_SYSCALL_handler, 3);
+    SETGATE(idt[T_SYSCALL], 0, GD_KT, T_SYSCALL_handler, 3);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -177,9 +178,29 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
+	struct PushRegs *regs;
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
+	switch (tf->tf_trapno) {
+		case T_PGFLT:
+			page_fault_handler(tf);
+			return;
+		case T_DEBUG:
+		case T_BRKPT:
+			monitor(tf);
+			return;
+		case T_SYSCALL:
+			regs = &tf->tf_regs;
+			regs->reg_eax = syscall(regs->reg_eax,
+					regs->reg_edx,
+					regs->reg_ecx,
+					regs->reg_ebx,
+					regs->reg_edi,
+					regs->reg_esi);
+			return;
+		default:
+			break;
+	}
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
@@ -203,11 +224,11 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-
+	
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);
-
+		
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
@@ -219,7 +240,6 @@ trap(struct Trapframe *tf)
 	// Record that tf is the last real trapframe so
 	// print_trapframe can print some additional information.
 	last_tf = tf;
-
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
@@ -238,9 +258,10 @@ page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
-
+	if ((tf->tf_cs & 3) == 0) {
+		panic("page fault in kernel mode");
+	}
 	// LAB 3: Your code here.
-
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 
