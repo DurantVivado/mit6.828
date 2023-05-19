@@ -191,8 +191,9 @@ env_setup_vm(struct Env *e)
 	// assign the virtual address of p to env_pgdir
 	e->env_pgdir = (pde_t*)page2kva(p);
 	
-    for (size_t i = PDX(UTOP); i < NPDENTRIES; ++i)
+    for (size_t i = PDX(UTOP); i < NPDENTRIES; ++i) {
         e->env_pgdir[i] = kern_pgdir[i];
+	}
 	for (i = 0; i < PDX(UTOP); i++) {
 		e->env_pgdir[i] = 0;
 	}
